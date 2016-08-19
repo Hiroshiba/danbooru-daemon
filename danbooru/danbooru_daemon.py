@@ -41,18 +41,19 @@ class Daemon(object):
     abort_list = {}
 
     config_required = [
-                       'api_mode',
-                       'host',
-                       'username',
-                       'password',
-                       'salt',
-                       ('limit', int),
-                       'download_path',
-                       'log_level',
-                       'log_file',
-                       'fetch_mode',
-                       ('skip_file_check', bool),
-                       ]
+        'api_mode',
+        'host',
+        'username',
+        'password',
+        'salt',
+        ('limit', int),
+        ('limit_page', int),
+        'download_path',
+        'log_level',
+        'log_file',
+        'fetch_mode',
+        ('skip_file_check', bool),
+    ]
 
     config_optional = {
                        'default_tags': None,
@@ -74,7 +75,7 @@ class Daemon(object):
                 help='list of tags to skip in search')
         parser.add_argument('-w', '--whitelist', dest='whitelist', nargs='+',
                 help='list of tags to always get in search')
-        parser.add_argument('-a', '--action', dest='action', required=True,
+        parser.add_argument('-a', '--action', dest='action', required=False,
                 help='set the action to perform')
         parser.add_argument('-i', '--before-id', dest='before_id',
                 help='search using this id as starting point')
@@ -139,7 +140,7 @@ class Daemon(object):
         del self.abort_list[cls.__class__.__name__]
 
     def signalHandler(self, signal, frame):  # @UnusedVariable
-        logging.info('Ctrl+C detected, shutting down...')
+        print('Ctrl+C detected, shutting down...')
         self.abort()
 
     def getLastId(self, tag, query, board, before_id=None):
@@ -156,14 +157,15 @@ class Daemon(object):
                 logging.error(e.message)
             sys.exit(1)
 
-    def main(self):
-        user_dir = expanduser("~")
-        args = self.parseArgs()
+    def main(self, path_directory: str):
+        user_dir = expanduser(path_directory)
+        self.args = args = self.parseArgs()
 
         if not args.config:
-            args.config = join(user_dir, ".danbooru-daemon.cfg")
+            import os
+            args.config = os.path.join(os.path.dirname(__file__), '.danbooru-daemon.cfg')
 
-        cfg = self.readConfig(args.config, args.section, self.config_required, self.config_optional)
+        self.cfg = cfg = self.readConfig(args.config, args.section, self.config_required, self.config_optional)
 
         logging.basicConfig(level=cfg.log_level, filename=cfg.log_file,
                             format='%(asctime)s %(levelname)s: %(message)s',
@@ -171,14 +173,14 @@ class Daemon(object):
 
         self.query = self.parseTags(args, cfg)
 
-        signal.signal(signal.SIGINT, self.signalHandler)
+        # signal.signal(signal.SIGINT, self.signalHandler)
 
         if not cfg.dbname:
             daemon_dir = join(user_dir, ".local/share/danbooru-daemon")
             makedirs(daemon_dir, exist_ok=True)
             cfg.dbname = join(daemon_dir, "danbooru-db.sqlite")
 
-        db = Database(cfg.dbname)
+        self.db = db = Database(join(user_dir, cfg.dbname))
         db.setHost(cfg.host, args.section)
 
         if args.action == "daemon":
@@ -189,7 +191,7 @@ class Daemon(object):
             elif cfg.api_mode == "gelbooru":
                 board = GelbooruAPI(cfg.host)
             for tag in self.query['tags']:
-                logging.debug("processing tag [%s]" % tag)
+                print("processing tag [%s]" % tag)
                 self.run_update(args, tag, cfg, board, db)
         elif args.action == "download":
             self.run_download(cfg, db)
@@ -228,33 +230,41 @@ class Daemon(object):
                 cfg = self.readConfig(args.config, section, self.config_required, self.config_optional)
                 db.setHost(cfg.host, section)
                 board = Api(cfg.host, cfg.username, cfg.password, cfg.salt)
-                logging.debug(">>> Run upload mode for %s", section)
+                print(">>> Run upload mode for %s", section)
                 for tag in self.query['tags']:
-                    logging.debug("processing tag [%s]", tag)
+                    print("processing tag [%s]", tag)
                     self.run_update(args, tag, cfg, board, db)
                     if self._stop:
                         return
-                logging.debug(">>> Run download mode for %s", section)
+                print(">>> Run download mode for %s", section)
                 self.run_download(cfg, db)
                 if self._stop:
                     return
-                #logging.debug("Run nepomuk mode for %s" % section)
+                #print("Run nepomuk mode for %s" % section)
                 #self.run_nepomuk(cfg, db)
                 #if self._abort: break
-            logging.debug("Waiting for %i seconds", sleep_time)
+            print("Waiting for %i seconds", sleep_time)
             time.sleep(sleep_time)
 
     def run_update(self, args, tag, cfg, board, db):
+        print("run_update tag : " + tag)
+
         if not args.tags:
             logging.error('No tags specified. Aborting.')
             sys.exit(1)
 
+        if not board:
+            if cfg.api_mode == "danbooru":
+                board = Api(cfg.host, cfg.username, cfg.password, cfg.salt)
+            elif cfg.api_mode == "gelbooru":
+                board = GelbooruAPI(cfg.host)
+
         if cfg.fetch_mode == "id":
             last_id = self.getLastId(tag, self.query, board, args.before_id)
-            logging.debug('Fetching posts below id: %i', last_id)
+            print('Fetching posts below id: %i', last_id)
         elif cfg.fetch_mode == "page":
             page = 1
-            logging.debug('Fetching posts from page: %i', page)
+            print('Fetching posts from page: %i', page)
         else:
             logging.error("Invalid fetch_mode")
             sys.exit(1)
@@ -280,30 +290,33 @@ class Daemon(object):
                 start = time.time()
                 results = db.savePosts(post_list)
                 end = time.time() - start
-                logging.debug("New entries: %i posts, %i images, %i tags", results['posts'], results['images'], results['tags'])
-                logging.debug("Time taken: %.2f seconds" % end)
-                if not results['posts']:
-                    logging.debug('Stopping since no new posts were inserted')
-                    break
+                print("New entries: %i posts, %i images, %i tags", results['posts'], results['images'], results['tags'])
+                print("Time taken: %.2f seconds" % end)
+                # if not results['posts']:
+                #     print('Stopping since no new posts were inserted')
+                #     break
                 if cfg.fetch_mode == "id":
                     last_id = post_list[-1]['post_id']
-                    logging.debug('Fetching posts below id: %i', last_id)
+                    print('Fetching posts below id: %i', last_id)
                 elif cfg.fetch_mode == "page":
                     page += 1
-                    logging.debug('Fetching posts from page: %i', page)
+                    if cfg.limit_page < page:
+                        print('Stopping since reach limit page')
+                        break
+                    print('Fetching posts from page: %i', page)
             else:
-                logging.debug('No posts returned')
+                print('No posts returned')
                 break
 
     def run_download(self, cfg, db):
-        dl = Downloader(cfg.download_path)
+        dl = Downloader(expanduser(cfg.download_path))
         self.registerClassSignal(dl)
         offset = 0
         limit = 2048
 
         def callback(file, current, total):
             sys.stdout.write("\r%s: %i of %i bytes" % (file, current, total))
-            sys.stdout.flush()
+            # sys.stdout.flush()
 
         while not self._stop:
             rows = db.getFiles(limit, offset)
@@ -314,7 +327,7 @@ class Daemon(object):
         self.unregisterClassSignal(dl)
 
     def run_nepomuk(self, cfg, db):
-        from danbooru.nepomuk import NepomukTask
+        from .danbooru.nepomuk import NepomukTask
         nk = NepomukTask()
         self.registerClassSignal(nk)
         nk.updateDirectoryTags(cfg.download_path, db)
@@ -328,19 +341,19 @@ class Daemon(object):
                 #FIXME: implement addTags
                 #db.addTags(tagList)
                 last_id = tagList[-1]['id']
-                logging.debug('Next fetch id: %i' % last_id)
+                print('Next fetch id: %i' % last_id)
             else:
                 break
 
     def run_pools(self, db, board):
         page = 1
         while not self._stop:
-            logging.debug('Fetching pools from page: %i', page)
+            print('Fetching pools from page: %i', page)
             poolList = board.getPoolsPage(page)
             if poolList:
                 created, updated, up_to_date = db.savePools(poolList)
                 if up_to_date:
-                    logging.debug('Pool list up-to-date, %i new, %i updated', created, updated)
+                    print('Pool list up-to-date, %i new, %i updated', created, updated)
                     break
                 page += 1
             else:
@@ -356,14 +369,14 @@ class Daemon(object):
                 break
             pools += [x.pool_id for x in pools_data]
             offset += limit
-            logging.debug('Building pool list: %i...', offset)
-        logging.debug('Fetching posts from %i pools', len(pools))
+            print('Building pool list: %i...', offset)
+        print('Fetching posts from %i pools', len(pools))
         for pool in pools:
             page = 1
             count = 0
             total = 0
             while not self._stop:
-                logging.debug('Fetching from pool: %i, posts from page: %i', pool, page)
+                print('Fetching from pool: %i, posts from page: %i', pool, page)
                 posts = board.getPoolPostsPage(pool, page)
                 if posts:
                     if page == 1:
@@ -373,7 +386,7 @@ class Daemon(object):
                     total += len(posts)
                 else:
                     count += db.savePool(pool)
-                    logging.debug('Got %i/%i posts from pool %i', count, total, pool)
+                    print('Got %i/%i posts from pool %i', count, total, pool)
                     break
 
     def clean_loop(self, directory, dest, db):
@@ -387,17 +400,17 @@ class Daemon(object):
             elif isfile(full_path):
                 md5 = splitext(name)[0]
                 if not db.fileExists(md5):
-                    logging.debug('%s isn\'t in database', name)
+                    print('%s isn\'t in database', name)
                     shutil.move(full_path, join(dest, name))
                     count += 1
         return count
 
     def cleanup(self, cfg, db, args, dest):
         post_c, img_c, tag_c = db.deletePostsByTags(args.blacklist, args.whitelist)
-        logging.debug('Deleted %i posts, %i images refs, %i tags', post_c, img_c, tag_c)
+        print('Deleted %i posts, %i images refs, %i tags', post_c, img_c, tag_c)
 
         count = self.clean_loop(cfg.download_path, dest, db)
-        logging.debug('Moved %i images', count)
+        print('Moved %i images', count)
 
 if __name__ == '__main__':
     Daemon().main()

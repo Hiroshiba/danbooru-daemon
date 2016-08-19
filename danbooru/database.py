@@ -22,7 +22,7 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import func, ClauseElement, distinct, not_
 
-from danbooru.models import Board, Post, Image, Tag, Base, Pool
+from .models import Board, Post, Image, Tag, Base, Pool
 
 
 class Database(object):

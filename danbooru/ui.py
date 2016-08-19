@@ -19,7 +19,7 @@ from os import makedirs
 from PyQt4 import QtCore, QtGui
 from os.path import basename, splitext, exists, join, expanduser
 
-from danbooru.models import Post
+from .models import Post
 
 
 class ThumbnailCache(object):

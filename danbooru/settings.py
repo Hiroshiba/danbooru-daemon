@@ -16,7 +16,7 @@
 
 import logging
 import configparser
-from danbooru.error import DanbooruError
+from .error import DanbooruError
 
 
 class Settings(object):

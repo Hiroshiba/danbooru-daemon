@@ -1,9 +1,9 @@
-import danbooru
+from .api import Api
 
 import xml.dom.minidom
 
 
-class GelbooruAPI(danbooru.api.Api):
+class GelbooruAPI(Api):
 
     POST_API = "/index.php?page=dapi&s=post&q=index"
 

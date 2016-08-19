@@ -18,18 +18,20 @@
 
 from setuptools import setup
 
-setup(name='danbooru-daemon',
-      version='0.1',
-      description='Danbooru daemon and offline browser',
-      author='codestation',
-      author_email='codestation404@gmail.com',
-      license='Apache-2.0',
-      url='https://github.com/codestation/danbooru-daemon/',
-      platforms=['any'],
-      packages=['danbooru'],
-      scripts=['danbooru_daemon', 'danbooru_gui'],
-      data_files=[
-                  ('share/danbooru-daemon/ui', ['ui/query-clear.png', 'ui/danbooru.ui']),
-                  ('share/danbooru-daemon', ['sample-config.cfg', 'README'])
-                  ]
-     )
+setup(
+    name='danbooru-library',
+    version='0.1',
+    description='Danbooru Library',
+    author='hiroshiba.k',
+    author_email='hihokaruta@gmail.com',
+    license='Apache-2.0',
+    url='https://github.com/Hiroshiba/danbooru-daemon/',
+    platforms=['any'],
+    packages=['danbooru'],
+    package_dir = {
+        'danbooru': 'danbooru'
+    },
+    package_data={
+        'danbooru': ['.danbooru-daemon.cfg']
+    }
+)

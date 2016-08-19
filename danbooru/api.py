@@ -25,8 +25,8 @@ from urllib.error import URLError, HTTPError
 from http.client import HTTPException
 from time import sleep, time, gmtime, strftime
 
-from danbooru.error import DanbooruError
-from danbooru.utils import filter_posts
+from .error import DanbooruError
+from .utils import filter_posts
 
 
 class Api(object):

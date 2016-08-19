@@ -57,8 +57,7 @@ class Downloader(object):
                 break
             base = dl.image.md5 + dl.image.file_ext
 
-            subdir = dl.image.md5[0]
-            filename = join(self.path, subdir, base)
+            filename = join(self.path, base)
             if isfile(filename):
                 if not dl.image.file_size or getsize(filename) == dl.image.file_size:
                     if nohash:
@@ -86,7 +85,8 @@ class Downloader(object):
 
             while not self._stop and retries < 3:
                 try:
-                    remote_file = urlopen(dl.file_url)
+                    url = "https://danbooru.donmai.us" + dl.file_url
+                    remote_file = urlopen(url)
 
                     meta = remote_file.info()
                     if "Content-Length" in meta:
@@ -119,7 +119,7 @@ class Downloader(object):
 
                     logging.debug('(%i) %s [OK]', self._total, base)
                     self._total += 1
-                    sleep(1)
+                    sleep(0.1)
                     break
                 except HTTPError as e:
                     logging.error('>>> Error %i: %s', e.code, e.msg)
