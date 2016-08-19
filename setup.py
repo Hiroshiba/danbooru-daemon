@@ -20,7 +20,7 @@ from setuptools import setup
 
 setup(
     name='danbooru-library',
-    version='0.1',
+    version='0.1.1',
     description='Danbooru Library',
     author='hiroshiba.k',
     author_email='hihokaruta@gmail.com',

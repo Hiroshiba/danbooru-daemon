@@ -21,7 +21,6 @@ import time
 import signal
 import shutil
 import logging
-import argparse
 
 from os import listdir, makedirs
 from os.path import join, isdir, isfile, splitext, expanduser
@@ -64,23 +63,18 @@ class Daemon(object):
                     }
 
     def parseArgs(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-c', '--config', dest='config',
-                help='use the indicated config file')
-        parser.add_argument('-s', '--section', dest='section', default='danbooru',
-                help='select the section from the config file')
-        parser.add_argument('-t', '--tags', dest='tags', nargs='+',
-                help='list of tags to use in search')
-        parser.add_argument('-b', '--blacklist', dest='blacklist', nargs='+',
-                help='list of tags to skip in search')
-        parser.add_argument('-w', '--whitelist', dest='whitelist', nargs='+',
-                help='list of tags to always get in search')
-        parser.add_argument('-a', '--action', dest='action', required=False,
-                help='set the action to perform')
-        parser.add_argument('-i', '--before-id', dest='before_id',
-                help='search using this id as starting point')
 
-        return parser.parse_args()
+        class DummyArgs(object):
+            def __init__(self):
+                self.config = None
+                self.section = 'danbooru'
+                self.tags = None
+                self.blacklist = None
+                self.whitelist = None
+                self.action = None
+                self.before_id = None
+
+        return DummyArgs()
 
     def readConfig(self, config, section, required_fields, optional_fields):
         cfg = Settings(config)
