@@ -17,7 +17,7 @@
 import os
 
 from sqlalchemy import event
-from sqlalchemy.orm import scoped_session, joinedload
+from sqlalchemy.orm import scoped_session, joinedload, eagerload
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import func, ClauseElement, distinct, not_
@@ -219,8 +219,10 @@ class Database(object):
             q = q.limit(limit)
         return q.all()
 
-    def getPosts(self, limit=100, offset=0, extra_items=None):
+    def getPosts(self, limit=100, offset=0, extra_items=None, relation_tags=True):
         q = self.DBsession().query(Post)
+        if relation_tags:
+            q = q.options(eagerload('tags'))
         if extra_items:
             q = self._dict2ToQuery(q, extra_items)
         q = q.order_by(Post.post_id.desc())
